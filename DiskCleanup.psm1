@@ -1,84 +1,83 @@
 ﻿function Get-VolumeCachesKey {
-<#
-.SYNOPSIS   
+    <#
+.SYNOPSIS
 Returns the available keys in the VolumeCaches registry key
-    
-.DESCRIPTION 
+
+.DESCRIPTION
 Retrieves the available ChildObject from the following registry key: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches
 
-.NOTES   
+.NOTES
 Name       : Get-VolumeCachesKey
 Author     : Jaap Brasser
 DateCreated: 2016-05-03
-DateUpdated: 2016-05-03
+DateUpdated: 2019-04-03
 Site       : http://www.jaapbrasser.com
-Version    : 1.0.0
+Version    : 1.0.1
+             removed SupportsShouldProcess because this is a non destructive cmdlet
 #>
-    [cmdletbinding(SupportsShouldProcess)]
+    [cmdletbinding()]
     param()
 
     process {
-        if ($PSCmdlet.ShouldProcess($env:ComputerName,'Querying registry for key names')) {
-            Get-ChildItem -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches'
-        }
+        Get-ChildItem -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches'
     }
 }
 
 function Get-VolumeCachesStateFlags {
-<#
-.SYNOPSIS   
+    <#
+.SYNOPSIS
 Returns the defined StateFlags in the registry
-    
-.DESCRIPTION 
+
+.DESCRIPTION
 Iterates through the registry to generate a collection of custom objects containing the configuration options for the StateFlags set on the current system. These flags can be used with the cleanmgr.exe command line utility to automatically start a saved disk cleaning task.
 
-.NOTES   
+.NOTES
 Name       : Get-VolumeCachesStateFlags
 Author     : Jaap Brasser
 DateCreated: 2016-05-03
-DateUpdated: 2016-05-03
+DateUpdated: 2019-07-03
 Site       : http://www.jaapbrasser.com
-Version    : 1.0.0
+Version    : 1.0.1
+             removed SupportsShouldProcess because this is a non destructive cmdlet
 #>
-    [cmdletbinding(SupportsShouldProcess)]
+    [cmdletbinding()]
     param()
 
     process {
-        if ($PSCmdlet.ShouldProcess($env:ComputerName,'Querying registry for StateFlags')) {
-            Get-VolumeCachesKey | ForEach-Object -Begin {
-                $HashTable = @{}
-            } -Process {
-                $CurrentItem = $_
-                ($CurrentProperty = Get-ItemProperty -Path $CurrentItem.PSPath).PSObject.Properties.Name |
+        Get-VolumeCachesKey | ForEach-Object -Begin {
+            $HashTable = @{}
+        } -Process {
+            $CurrentItem = $_
+            ($CurrentProperty = Get-ItemProperty -Path $CurrentItem.PSPath).PSObject.Properties.Name |
                 Where-Object {$_ -match '^StateFlags'} | ForEach-Object {
-                    if (!$HashTable.$_) {
-                        $HashTable.$_ = [ordered]@{Name=$_}
-                    }
-                
-                    $HashTable.$_.$($CurrentItem.PSChildName) = switch ($CurrentProperty.$_) {
-                                                                    0       {$false}
-                                                                    2       {$true}
-                                                                    default {$null}
-                                                                }
+                if (!$HashTable.$_) {
+                    $HashTable.$_ = [ordered]@{Name = $_}
                 }
-            }  -End {
-                $HashTable.Keys | ForEach-Object {
-                    New-Object -TypeName PSCustomObject -Property $Hashtable.$_
+
+                $HashTable.$_.$($CurrentItem.PSChildName) = switch ($CurrentProperty.$_) {
+                    0 {$false}
+                    2 {$true}
+                    default {$null}
                 }
             }
+        }  -End {
+            $HashTable.Keys | ForEach-Object {
+                New-Object -TypeName PSCustomObject -Property $Hashtable.$_
+            }
         }
+
     }
 }
 
 function Set-VolumeCachesStateFlags {
-<#
-.SYNOPSIS   
+    <#
+.SYNOPSIS
 Set a StateFlags entry to the registry
-    
-.DESCRIPTION 
+
+.DESCRIPTION
 Creates a Stateflags entry for the specified switch parameters in order to automate the StateFlags creation. This function allows you to set this without using the GUI.
 
-.NOTES   
+.NOTES
 Name       : Set-VolumeCachesStateFlags
 Author     : Jaap Brasser
 DateCreated: 2016-05-03
@@ -89,9 +88,9 @@ Version    : 1.0.0
     [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory,
-                   Position=0
+            Position = 0
         )]
-        [ValidateRange(0,9999)]
+        [ValidateRange(0, 9999)]
         [int] $StateFlags
     )
 
@@ -102,14 +101,14 @@ Version    : 1.0.0
         }
         $AttributeCollection = New-Object -Type System.Collections.ObjectModel.Collection[System.Attribute]
         $AttributeCollection.Add($Attributes)
-        Get-VolumeCachesKey | Select-Object -ExpandProperty PSChildName | 
-        Where-Object {$_ -notcontains @('Content Indexer Cleaner',
-                                        'Delivery Optimization Files',
-                                        'Device Driver Packages',
-                                        'GameNewsFiles',
-                                        'GameStatisticsFiles',
-                                        'GameUpdateFiles',
-                                        'Temporary Sync Files')
+        Get-VolumeCachesKey | Select-Object -ExpandProperty PSChildName |
+            Where-Object {$_ -notcontains @('Content Indexer Cleaner',
+                'Delivery Optimization Files',
+                'Device Driver Packages',
+                'GameNewsFiles',
+                'GameStatisticsFiles',
+                'GameUpdateFiles',
+                'Temporary Sync Files')
         } | ForEach-Object -Begin {
             $ParamDictionary = New-Object -Type System.Management.Automation.RuntimeDefinedParameterDictionary
         } -Process {
@@ -118,7 +117,7 @@ Version    : 1.0.0
             $ParamDictionary.Add($CurrentParameter, $DynParam1)
         } -End {
             $ParamDictionary -as [System.Management.Automation.RuntimeDefinedParameterDictionary]
-        }        
+        }
     }
 
     begin {
@@ -126,14 +125,14 @@ Version    : 1.0.0
     }
 
     process {
-        Get-VolumeCachesKey | Select-Object -ExpandProperty PSChildName | 
-        Where-Object {$_ -notcontains @('Content Indexer Cleaner',
-                                        'Delivery Optimization Files',
-                                        'Device Driver Packages',
-                                        'GameNewsFiles',
-                                        'GameStatisticsFiles',
-                                        'GameUpdateFiles',
-                                        'Temporary Sync Files')
+        Get-VolumeCachesKey | Select-Object -ExpandProperty PSChildName |
+            Where-Object {$_ -notcontains @('Content Indexer Cleaner',
+                'Delivery Optimization Files',
+                'Device Driver Packages',
+                'GameNewsFiles',
+                'GameStatisticsFiles',
+                'GameUpdateFiles',
+                'Temporary Sync Files')
         } | ForEach-Object {
             $HashSplat = @{
                 Path         = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\{0}' -f $_
@@ -143,12 +142,13 @@ Version    : 1.0.0
             }
             if ($PSBoundParameters.ContainsKey(($_ -replace '\s'))) {
                 $HashSplat.Value = 0x2
-                if ($PSCmdlet.ShouldProcess($_,"Setting registry REG_DWORD '$StateFlagsName' to enabled ")) {
+                if ($PSCmdlet.ShouldProcess($_, "Setting registry REG_DWORD '$StateFlagsName' to enabled ")) {
                     $null = New-ItemProperty @HashSplat
                 }
-            } else {
+            }
+            else {
                 $HashSplat.Value = 0x0
-                if ($PSCmdlet.ShouldProcess($_,"Setting registry REG_DWORD '$StateFlagsName' to disabled")) {
+                if ($PSCmdlet.ShouldProcess($_, "Setting registry REG_DWORD '$StateFlagsName' to disabled")) {
                     $null = New-ItemProperty @HashSplat
                 }
             }
@@ -157,14 +157,14 @@ Version    : 1.0.0
 }
 
 function Remove-WindowsUpgradeFiles {
-<#
-.SYNOPSIS   
+    <#
+.SYNOPSIS
 Removes Temporary Setup Files and Previous Installations of Windows to reclaim diskspace
-    
-.DESCRIPTION 
+
+.DESCRIPTION
 Creates a Stateflags entry for and runs this afterwards. A GUI popup might still occur.
 
-.NOTES   
+.NOTES
 Name       : Remove-WindowsUpgradeFiles
 Author     : Jaap Brasser
 DateCreated: 2016-05-03
@@ -173,7 +173,7 @@ Site       : http://www.jaapbrasser.com
 Version    : 1.1.0
 #>
     [cmdletbinding(SupportsShouldProcess,
-                   ConfirmImpact = 'High'
+        ConfirmImpact = 'High'
     )]
     param(
         [switch] $Force
@@ -186,25 +186,25 @@ Version    : 1.1.0
             $ConfirmPreference = 'None'
         }
     }
-    
+
     process {
         Set-VolumeCachesStateFlags -TemporarySetupFiles -PreviousInstallations -StateFlags 1337
 
-        $ProcessInfo             = New-Object System.Diagnostics.ProcessStartInfo
-        $Process                 = New-Object System.Diagnostics.Process
+        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $Process = New-Object System.Diagnostics.Process
 
-        $ProcessInfo.FileName    = "$($env:SystemRoot)\system32\cleanmgr.exe"
-        $ProcessInfo.Arguments   = '/SAGERUN:1337'
+        $ProcessInfo.FileName = "$($env:SystemRoot)\system32\cleanmgr.exe"
+        $ProcessInfo.Arguments = '/SAGERUN:1337'
         $ProcessInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
-        $Process.StartInfo       = $ProcessInfo
-        if ($PSCmdlet.ShouldProcess($env:ComputerName,'Removing Windows installation files and old version of Windows')) {
+        $Process.StartInfo = $ProcessInfo
+        if ($PSCmdlet.ShouldProcess($env:ComputerName, 'Removing Windows installation files and old version of Windows')) {
             $null = $Process.Start()
         }
     }
 
     end {
         $Process = Get-Process cleanmgr
-        while ($($Process.Refresh();$Process.ProcessName)) {
+        while ($($Process.Refresh(); $Process.ProcessName)) {
             Start-Sleep -Milliseconds 500
         }
         $After = Get-CimInstance -Query "Select FreeSpace FROM Win32_LogicalDisk WHERE DeviceID='$($env:SystemDrive)'"
@@ -214,7 +214,7 @@ Version    : 1.1.0
             'FreeSpaceBefore'    = $Before.FreeSpace
             'FreeSpaceAfter'     = $After.FreeSpace
             'TotalCleanedUp'     = $After.FreeSpace - $Before.FreeSpace
-            'TotalCleanedUp(GB)' = '{0:N2}' -f (($After.FreeSpace - $Before.FreeSpace)/1GB)
+            'TotalCleanedUp(GB)' = '{0:N2}' -f (($After.FreeSpace - $Before.FreeSpace) / 1GB)
         }
     }
 }
