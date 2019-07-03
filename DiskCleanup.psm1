@@ -218,3 +218,95 @@ Version    : 1.1.0
         }
     }
 }
+
+function Start-DiskCleanup {
+    <#
+.SYNOPSIS
+
+
+.DESCRIPTION
+
+
+.NOTES
+Name       : Remove-WindowsUpgradeFiles
+Author     : Jaap Brasser / Oliver Soswinski
+DateCreated: 2016-05-03
+DateUpdated: 2019-07-03
+Site       : http://www.jaapbrasser.com
+Version    : 1.1.0
+#>
+    [cmdletbinding(SupportsShouldProcess,
+        ConfirmImpact = 'High'
+    )]
+    param(
+        [Parameter(ParameterSetName = 'Custom',
+            Mandatory = $True,
+            Position = 0
+        )]
+        [ValidateRange(0, 9999)]
+        [int] $StateFlags,
+        [Parameter(ParameterSetName = 'All',
+            Mandatory = $True,
+            Position = 0
+        )]
+        [switch]
+        $All,
+        [switch]
+        $Force
+    )
+
+    begin {
+        $Before = Get-CimInstance -Query "Select DeviceID,Size,FreeSpace FROM Win32_LogicalDisk WHERE DeviceID='$($env:SystemDrive)'"
+        Write-Verbose -Message ('Cleaning the System Drive {0}' -f $Before.DeviceID)
+        if ($Force) {
+            $ConfirmPreference = 'None'
+        }
+        $StateFlagsName = ('StateFlags{0:D4}' -f $StateFlags)
+    }
+
+    process {
+        $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $Process = New-Object System.Diagnostics.Process
+        $ProcessInfo.FileName = "$($env:SystemRoot)\system32\cleanmgr.exe"
+
+        if ($All) {
+            Set-VolumeCachesStateFlags -TemporarySetupFiles -PreviousInstallations -StateFlags 1338
+            $ProcessInfo.Arguments = '/SAGERUN:1338'
+            [string]$ShouldProcessMSG = 'full DIsk Cleanup'
+        }
+        else {
+            $presentStateFlags = Get-VolumeCachesStateFlags
+            if ($presentStateFlags.Name -contains $StateFlagsName ) {
+                $ProcessInfo.Arguments = ('/SAGERUN:{0}' -f $StateFlags)
+                [string]$ShouldProcessMSG = ('DiskCleanup with {0}' -f $StateFlagsName)
+            }
+            else {
+                Write-Warning -Message ('{0} not present.' -f $StateFlagsName)
+                break
+            }
+        }
+
+        $ProcessInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Normal
+        $Process.StartInfo = $ProcessInfo
+        if ($PSCmdlet.ShouldProcess($env:ComputerName, $ShouldProcessMSG)) {
+            $null = $Process.Start()
+        }
+    }
+
+    end {
+        $Process = Get-Process cleanmgr
+        while ($($Process.Refresh(); $Process.ProcessName)) {
+            Start-Sleep -Milliseconds 500
+        }
+        $After = Get-CimInstance -Query "Select FreeSpace FROM Win32_LogicalDisk WHERE DeviceID='$($env:SystemDrive)'"
+        [PSCustomObject]@{
+            'DiskDeviceID'       = $Before.DeviceID
+            'DiskSize'           = $Before.Size
+            'FreeSpaceBefore'    = $Before.FreeSpace
+            'FreeSpaceAfter'     = $After.FreeSpace
+            'TotalCleanedUp'     = $After.FreeSpace - $Before.FreeSpace
+            'TotalCleanedUp(GB)' = '{0:N2}' -f (($After.FreeSpace - $Before.FreeSpace) / 1GB)
+        }
+    }
+
+}
